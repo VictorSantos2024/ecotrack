@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+
+{% block title %}EcoTrack - Flood Monitoring System{% endblock %}
+
+{% block content %}
+<style>
+    body {
+      background: url("{{ url_for('static', filename='images/mdrrmo_logo.jpg') }}") no-repeat center center fixed;
+        background-size: cover;
+    }
+
+    /* Optional overlay to make text readable */
+    body::before {
+        content: "";
+        position: fixed;
+        top: 0; 
+        left: 0;
+        width: 100%; 
+        height: 100%;
+        background: rgba(255, 255, 255, 0.7); /* white overlay, adjust 0.7 for more/less opacity */
+        z-index: -1;
+    }
+</style>
+
+{% if current_user.is_authenticated %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card stats-card mb-4">
+                <div class="card-body text-center">
+                    <h2 class="card-title">Welcome to EcoTrack, {{ current_user.first_name }}!</h2>
+                    <p class="card-text">Your flood monitoring and reporting system</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if current_user.role == 'admin' %}
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <i class="fas fa-users fa-3x text-primary mb-3"></i>
+                        <h5>Manage Users</h5>
+                        <p class="text-muted">View and manage system users</p>
+                        <a href="{{ url_for('admin_users') }}" class="btn btn-primary">View Users</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <i class="fas fa-file-alt fa-3x text-info mb-3"></i>
+                        <h5>Reports</h5>
+                        <p class="text-muted">View and manage flood reports</p>
+                        <a href="{{ url_for('admin_reports') }}" class="btn btn-info">View Reports</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <i class="fas fa-chart-line fa-3x text-success mb-3"></i>
+                        <h5>Analytics</h5>
+                        <p class="text-muted">View data analytics and insights</p>
+                        <a href="{{ url_for('analytics') }}" class="btn btn-success">View Analytics</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+
+    {% if current_user.role in ['resident', 'brgy_official'] %}
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <i class="fas fa-exclamation-triangle fa-3x text-warning mb-3"></i>
+                        <h5>Report Flood</h5>
+                        <p class="text-muted">Report a flood incident in your area</p>
+                        <a href="{{ url_for('report_flood') }}" class="btn btn-warning">Report Now</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <i class="fas fa-user fa-3x text-primary mb-3"></i>
+                        <h5>My Profile</h5>
+                        <p class="text-muted">Update your profile information</p>
+                        <a href="{{ url_for('profile') }}" class="btn btn-primary">View Profile</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+
+    {% if prediction %}
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-cloud-rain me-2"></i>Flood Risk Prediction</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert {% if prediction == 'High Risk' %}alert-danger{% elif prediction == 'Moderate Risk' %}alert-warning{% else %}alert-success{% endif %}">
+                            <i class="fas fa-info-circle me-2"></i>Current Flood Risk: <strong>{{ prediction }}</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+
+    {% if reports %}
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-file-alt me-2"></i>Recent Flood Reports</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Location</th>
+                                        <th>Barangay</th>
+                                        <th>Level</th>
+                                        <th>Status</th>
+                                        <th>Reporter</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for report in reports %}
+                                    <tr>
+                                        <td>{{ report.created_at|format_dt('%Y-%m-%d %H:%M') }}</td>
+                                        <td>{{ report.location }}</td>
+                                        <td>{{ report.barangay }}</td>
+                                        <td>
+                                            <span class="badge flood-level-{{ report.flood_level }}">
+                                                {{ report.flood_level.title() }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-{% if report.status == 'resolved' %}success{% elif report.status == 'verified' %}info{% else %}warning{% endif %}">
+                                                {{ report.status.title() }}
+                                            </span>
+                                        </td>
+                                        <td>{{ report.reporter.first_name }} {{ report.reporter.last_name }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+
+{% else %}
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h3>Welcome to EcoTrack</h3>
+                    <p class="text-muted mb-4">Flood monitoring and reporting system for safer communities</p>
+                    <div class="d-grid gap-2">
+                        <a href="{{ url_for('login') }}" class="btn btn-primary btn-lg">
+                            <i class="fas fa-sign-in-alt me-2"></i>Login
+                        </a>
+                        <a href="{{ url_for('register') }}" class="btn btn-outline-primary btn-lg">
+                            <i class="fas fa-user-plus me-2"></i>Register
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,543 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Reports - EcoTrack{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-file-alt me-2"></i>Flood Reports Management</h2>
+    <div>
+        <span class="badge bg-primary">{{ reports|length }} Total Reports</span>
+    </div>
+</div>
+
+<!-- Search and Filter Section -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="GET" class="row g-3">
+            <div class="col-md-3">
+               <label for="barangay" class="form-label">Barangay</label>
+<select name="barangay" id="barangay" class="form-select">
+    <option value="">All Barangays</option>
+    <option value="Ag-aguman">Ag-aguman</option>
+    <option value="Ambalayat">Ambalayat</option>
+    <option value="Baracbac">Baracbac</option>
+    <option value="Bario-an">Bario-an</option>
+    <option value="Baritao">Baritao</option>
+    <option value="Becques">Becques</option>
+    <option value="Bimmanga">Bimmanga</option>
+    <option value="Bio">Bio</option>
+    <option value="Bitalag">Bitalag</option>
+    <option value="Borono">Borono</option>
+    <option value="Bucao East">Bucao East</option>
+    <option value="Bucao West">Bucao West</option>
+    <option value="Cabaroan">Cabaroan</option>
+    <option value="Cabugbugan">Cabugbugan</option>
+    <option value="Cabulanglangan">Cabulanglangan</option>
+    <option value="Dacutan">Dacutan</option>
+    <option value="Dardarat">Dardarat</option>
+    <option value="Del Pilar">Del Pilar</option>
+    <option value="Farola">Farola</option>
+    <option value="Gabur">Gabur</option>
+    <option value="Garitan">Garitan</option>
+    <option value="Jardin">Jardin</option>
+    <option value="Lacong">Lacong</option>
+    <option value="Lantag">Lantag</option>
+    <option value="Las-ud">Las-ud</option>
+    <option value="Libtong">Libtong</option>
+    <option value="Lubnac">Lubnac</option>
+    <option value="Magsaysay">Magsaysay</option>
+    <option value="Malacañang">Malacañang</option>
+    <option value="Pacac">Pacac</option>
+    <option value="Pallogan">Pallogan</option>
+    <option value="Pudoc East">Pudoc East</option>
+    <option value="Pudoc West">Pudoc West</option>
+    <option value="Pula">Pula</option>
+    <option value="Quirino">Quirino</option>
+    <option value="Ranget">Ranget</option>
+    <option value="Rizal">Rizal</option>
+    <option value="Salvacion">Salvacion</option>
+    <option value="San Miguel">San Miguel</option>
+    <option value="Sawat">Sawat</option>
+</select>
+
+            </div>
+            <div class="col-md-3">
+                <label for="status" class="form-label">Status</label>
+                <select name="status" id="status" class="form-select">
+                    <option value="" {{ '' == request.args.get('status', '') and 'selected' or '' }}>All Statuses</option>
+                    <option value="pending" {{ 'pending' == request.args.get('status', '') and 'selected' or '' }}>Pending</option>
+                    <option value="verified" {{ 'verified' == request.args.get('status', '') and 'selected' or '' }}>Verified</option>
+                    <option value="resolved" {{ 'resolved' == request.args.get('status', '') and 'selected' or '' }}>Resolved</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="flood_level" class="form-label">Flood Level</label>
+                <select name="flood_level" id="flood_level" class="form-select">
+                    <option value="" {{ '' == request.args.get('flood_level', '') and 'selected' or '' }}>All Levels</option>
+                    <option value="low" {{ 'low' == request.args.get('flood_level', '') and 'selected' or '' }}>Low</option>
+                    <option value="medium" {{ 'medium' == request.args.get('flood_level', '') and 'selected' or '' }}>Medium</option>
+                    <option value="high" {{ 'high' == request.args.get('flood_level', '') and 'selected' or '' }}>High</option>
+                    <option value="critical" {{ 'critical' == request.args.get('flood_level', '') and 'selected' or '' }}>Critical</option>
+                </select>
+            </div>
+            <div class="col-md-3 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary me-2">Filter</button>
+                <a href="{{ url_for('admin_reports') }}" class="btn btn-outline-secondary">Reset</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Reports Table -->
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead class="table-dark">
+                    <tr>
+                        <th>ID</th>
+                        <th>Location</th>
+                        <th>Barangay</th>
+                        <th>Flood Level</th>
+                        <th>Reporter</th>
+                        <th>Status</th>
+                        <th>Date</th>
+                        <th>Image</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for report in reports %}
+                        <tr>
+                            <td><strong>#{{ report.id }}</strong></td>
+                            <td>{{ report.location }}</td>
+                            <td>{{ report.barangay }}</td>
+                            <td>
+                                <span class="badge 
+                                    {% if report.flood_level == 'critical' %}bg-danger
+                                    {% elif report.flood_level == 'high' %}bg-warning
+                                    {% elif report.flood_level == 'medium' %}bg-info
+                                    {% else %}bg-secondary{% endif %}">
+                                    {{ report.flood_level|title }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    {% if report.reporter.profile_image %}
+                                        <img src="data:image/jpeg;base64,{{ report.reporter.profile_image }}" 
+                                             alt="Reporter" 
+                                             class="rounded-circle me-2" 
+                                             style="width: 30px; height: 30px; object-fit: cover;">
+                                    {% else %}
+                                        <i class="fas fa-user-circle me-2"></i>
+                                    {% endif %}
+                                    {{ report.reporter.first_name }} {{ report.reporter.last_name }}
+                                    <small class="text-muted">(ID: {{ report.reporter.id }})</small>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge 
+                                    {% if report.status == 'verified' %}bg-success
+                                    {% elif report.status == 'resolved' %}bg-primary
+                                    {% else %}bg-warning{% endif %}">
+                                    {{ report.status|title }}
+                                </span>
+                            </td>
+                            <td>{{ report.created_at|format_dt('%m/%d %H:%M') }}</td>
+                            <td>
+                                {% if report.flood_images %}
+                                    <i class="fas fa-image text-success" title="Image available"></i>
+                                {% else %}
+                                    <i class="fas fa-image text-muted" title="No image"></i>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-primary" 
+                                        data-bs-toggle="modal" 
+                                        data-bs-target="#reportModal{{ report.id }}">
+                                    <i class="fas fa-eye me-1"></i>View
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary edit-user" 
+                                        data-user-id="{{ report.reporter.id }}"
+                                        data-user-name="{{ report.reporter.first_name }} {{ report.reporter.last_name }}"
+                                        title="Edit Reporter">
+                                    <i class="fas fa-user-edit"></i>
+                                </button>
+                                <button class="btn btn-sm btn-danger delete-report" 
+                                        data-report-id="{{ report.id }}"
+                                        title="Delete Report">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr>
+                            <td colspan="9" class="text-center py-4">No reports found</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Report Modals -->
+{% for report in reports %}
+<div class="modal fade" id="reportModal{{ report.id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-file-alt me-2"></i>Report #{{ report.id }} - {{ report.location }}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Location</label>
+                                    <p>{{ report.location }}</p>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Barangay</label>
+                                    <p>{{ report.barangay }}</p>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Flood Level</label>
+                                    <p>
+                                        <span class="badge 
+                                            {% if report.flood_level == 'critical' %}bg-danger
+                                            {% elif report.flood_level == 'high' %}bg-warning
+                                            {% elif report.flood_level == 'medium' %}bg-info
+                                            {% else %}bg-secondary{% endif %}">
+                                            {{ report.flood_level|title }}
+                                        </span>
+                                    </p>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Weather Condition</label>
+                                    <p>{{ report.weather_condition|title if report.weather_condition else 'Not specified' }}</p>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Risk Score</label>
+                                    <p>{{ report.risk_score|round(1) if report.risk_score else 'N/A' }}/100</p>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Coordinates</label>
+                                    <p>
+                                        {% if report.latitude and report.longitude %}
+                                            {{ report.latitude|round(6) }}, {{ report.longitude|round(6) }}
+                                        {% else %}
+                                            Not available
+                                        {% endif %}
+                                    </p>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Evacuation Needed</label>
+                                    <p>
+                                        {% if report.evacuation_needed %}
+                                            <span class="badge bg-danger">Yes</span>
+                                        {% else %}
+                                            <span class="badge bg-success">No</span>
+                                        {% endif %}
+                                    </p>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Reporter</label>
+                                    <div class="d-flex align-items-center">
+                                        {% if report.reporter.profile_image %}
+                                            <img src="data:image/jpeg;base64,{{ report.reporter.profile_image }}" 
+                                                 alt="Reporter" 
+                                                 class="rounded-circle me-2" 
+                                                 style="width: 30px; height: 30px; object-fit: cover;">
+                                        {% else %}
+                                            <i class="fas fa-user-circle me-2"></i>
+                                        {% endif %}
+                                        {{ report.reporter.first_name }} {{ report.reporter.last_name }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Description</label>
+                            <div class="bg-light p-3 rounded">{{ report.description }}</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Update Status</label>
+                            <select class="form-select" onchange="updateStatus({{ report.id }}, this.value)">
+                                <option value="pending" {% if report.status == 'pending' %}selected{% endif %}>Pending</option>
+                                <option value="verified" {% if report.status == 'verified' %}selected{% endif %}>Verified</option>
+                                <option value="resolved" {% if report.status == 'resolved' %}selected{% endif %}>Resolved</option>
+                            </select>
+                        </div>
+
+                        <div class="text-muted">
+                            <small>
+                                <i class="fas fa-clock me-1"></i>
+                                Reported: {{ report.created_at|format_dt('%B %d, %Y at %I:%M %p') }}<br>
+                                {% if report.updated_at != report.created_at %}
+                                    <i class="fas fa-edit me-1"></i>
+                                    Last updated: {{ report.updated_at|format_dt('%B %d, %Y at %I:%M %p') }}
+                                {% endif %}
+                            </small>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        {% if report.flood_images %}
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Flood Images</label>
+                                <div class="row g-2">
+                                    {% for image in report.flood_images|from_json %}
+                                    <div class="col-6">
+                                        <img src="data:{{ image.filename|guess_mime }};base64,{{ image.data }}" 
+                                             alt="Flood image" 
+                                             class="img-fluid rounded border mb-2"
+                                             style="cursor: pointer;"
+                                             onclick="showImageModal('data:{{ image.filename|guess_mime }};base64,{{ image.data }}')">
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        {% else %}
+                            <div class="text-center p-4">
+                                <i class="fas fa-image fa-3x text-muted mb-3"></i>
+                                <p class="text-muted">No images provided</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+<!-- Edit User Modal -->
+<div class="modal fade" id="editUserModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit User</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editUserForm">
+                    <input type="hidden" id="editUserId" />
+                    <div class="mb-3">
+                        <label class="form-label">Name</label>
+                        <input type="text" id="editUserName" class="form-control" disabled />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" id="editUserEmail" class="form-control" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Role</label>
+                        <select id="editUserRole" class="form-select">
+                            <option value="resident">Resident</option>
+                            <option value="brgy_official">Barangay Official</option>
+                            <option value="admin">Admin</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveUserBtn">Save</button>
+                <button type="button" class="btn btn-danger" id="deleteUserBtn">Delete User</button>
+            </div>
+        </div>
+    </div>
+    </div>
+
+<!-- Image Preview Modal -->
+<div class="modal fade" id="imagePreviewModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Image Preview</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <img id="modalImagePreview" src="" class="img-fluid" alt="Flood image preview">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function updateStatus(reportId, status) {
+    fetch(`/admin/report/${reportId}/update_status`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            status: status
+        })
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            showAlert('Status updated successfully!', 'success');
+            setTimeout(() => {
+                location.reload();
+            }, 1500);
+        } else {
+            showAlert('Error updating status', 'danger');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showAlert('Error updating status', 'danger');
+    });
+}
+
+function showImageModal(imageSrc) {
+    const modal = new bootstrap.Modal(document.getElementById('imagePreviewModal'));
+    document.getElementById('modalImagePreview').src = imageSrc;
+    modal.show();
+}
+
+function showAlert(message, type) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+    alertDiv.style.top = '20px';
+    alertDiv.style.right = '20px';
+    alertDiv.style.zIndex = '9999';
+    alertDiv.innerHTML = `
+        <i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'} me-2"></i>
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.body.appendChild(alertDiv);
+    
+    setTimeout(() => {
+        alertDiv.classList.remove('show');
+        setTimeout(() => {
+            alertDiv.remove();
+        }, 150);
+    }, 3000);
+}
+
+// Delete report functionality
+document.querySelectorAll('.delete-report').forEach(button => {
+    button.addEventListener('click', function(e) {
+        e.preventDefault();
+        const reportId = this.getAttribute('data-report-id');
+        
+        if (confirm('Are you sure you want to delete this report? This action cannot be undone.')) {
+            fetch(`/admin/report/${reportId}/delete`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    showAlert('Report deleted successfully!', 'success');
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1500);
+                } else {
+                    showAlert('Failed to delete report', 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('Error deleting report', 'danger');
+            });
+        }
+    });
+});
+
+// User edit
+document.querySelectorAll('.edit-user').forEach(button => {
+    button.addEventListener('click', function(e) {
+        e.preventDefault();
+        const userId = this.getAttribute('data-user-id');
+        const userName = this.getAttribute('data-user-name');
+        document.getElementById('editUserId').value = userId;
+        document.getElementById('editUserName').value = userName;
+        document.getElementById('editUserEmail').value = '';
+        document.getElementById('editUserRole').value = 'resident';
+        const modal = new bootstrap.Modal(document.getElementById('editUserModal'));
+        modal.show();
+    });
+});
+
+document.getElementById('saveUserBtn')?.addEventListener('click', async function() {
+    const userId = document.getElementById('editUserId').value;
+    const email = document.getElementById('editUserEmail').value;
+    const role = document.getElementById('editUserRole').value;
+    try {
+        const res = await fetch(`/admin/users/${userId}/update`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, role })
+        });
+        if (!res.ok) throw new Error('Failed to update user');
+        const data = await res.json();
+        if (data.success) {
+            showAlert('User updated successfully', 'success');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showAlert('Failed to update user', 'danger');
+        }
+    } catch (err) {
+        showAlert('Error updating user', 'danger');
+    }
+});
+
+document.getElementById('deleteUserBtn')?.addEventListener('click', async function() {
+    const userId = document.getElementById('editUserId').value;
+    if (!confirm('Delete this user and all their reports?')) return;
+    try {
+        const res = await fetch(`/admin/users/${userId}/delete`, { method: 'POST' });
+        if (!res.ok) throw new Error('Failed to delete user');
+        const data = await res.json();
+        if (data.success) {
+            showAlert('User deleted successfully', 'success');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showAlert('Failed to delete user', 'danger');
+        }
+    } catch (err) {
+        showAlert('Error deleting user', 'danger');
+    }
+});
+</script>
+
+<style>
+.profile-image {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+</style>
+{% endblock %}

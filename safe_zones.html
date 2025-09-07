@@ -1,0 +1,122 @@
+
+{% extends "base.html" %}
+
+{% block title %}Manage Safe Zones - EcoTrack{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h4 class="mb-0"><i class="fas fa-home me-2"></i>Add Safe Zone</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    {{ form.hidden_tag() }}
+                    
+                    <div class="mb-3">
+                        {{ form.name.label(class="form-label") }}
+                        {{ form.name(class="form-control") }}
+                    </div>
+                    
+                    <div class="mb-3">
+                        {{ form.address.label(class="form-label") }}
+                        {{ form.address(class="form-control", rows="3") }}
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                {{ form.capacity.label(class="form-label") }}
+                                {{ form.capacity(class="form-control") }}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                {{ form.barangay.label(class="form-label") }}
+                                {{ form.barangay(class="form-control") }}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                {{ form.contact_person.label(class="form-label") }}
+                                {{ form.contact_person(class="form-control") }}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                {{ form.contact_phone.label(class="form-label") }}
+                                {{ form.contact_phone(class="form-control") }}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        {{ form.facilities.label(class="form-label") }}
+                        {{ form.facilities(class="form-control", rows="3") }}
+                        <div class="form-text">e.g., Medical supplies, Food, Water, Shelter</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Location (Click on map to set)</label>
+                        <div id="safe-zone-map" style="height: 300px;"></div>
+                        {{ form.latitude() }}
+                        {{ form.longitude() }}
+                    </div>
+                    
+                    <div class="d-grid">
+                        {{ form.submit(class="btn btn-success") }}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-list me-2"></i>Existing Safe Zones</h5>
+            </div>
+            <div class="card-body">
+                {% for zone in safe_zones %}
+                    <div class="alert alert-success mb-2">
+                        <h6>{{ zone.name }}</h6>
+                        <p class="mb-1">{{ zone.address }}</p>
+                        <small class="text-muted">
+                            Capacity: {{ zone.capacity }} | {{ zone.barangay }}
+                            {% if zone.contact_person %}
+                                <br>Contact: {{ zone.contact_person }}
+                                {% if zone.contact_phone %} - {{ zone.contact_phone }}{% endif %}
+                            {% endif %}
+                        </small>
+                    </div>
+                {% else %}
+                    <p class="text-muted">No safe zones added yet.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"/>
+
+<script>
+var map = L.map('safe-zone-map').setView([16.0198, 120.2299], 13);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+var marker = null;
+
+map.on('click', function(e) {
+    if (marker) {
+        map.removeLayer(marker);
+    }
+    marker = L.marker(e.latlng).addTo(map);
+    document.getElementById('latitude').value = e.latlng.lat;
+    document.getElementById('longitude').value = e.latlng.lng;
+});
+</script>
+{% endblock %}

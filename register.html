@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+
+{% block title %}Register - EcoTrack{% endblock %}
+
+{% block content %}
+<style>
+    body {
+        background: url("{{ url_for('static', filename='images/mdrrmo_logo.jpg') }}") no-repeat center center fixed;
+        background-size: cover;
+    }
+
+    /* Overlay so form stays readable */
+    body::before {
+        content: "";
+        position: fixed;
+        top: 0; 
+        left: 0;
+        width: 100%; 
+        height: 100%;
+        background: rgba(255, 255, 255, 0.75); /* adjust opacity as needed */
+        z-index: -1;
+    }
+    
+</style>
+
+<div class="row justify-content-center mt-5">
+    <div class="col-md-8 col-lg-7">
+        <div class="card shadow-lg border-0 rounded-4" style="background: #f8fbff;">
+            <div class="card-header text-center border-0" style="background: #e3f2fd;">
+                <h4 class="mb-0" style="color:#1976d2; font-weight:700;">
+                    Register for EcoTrack
+                </h4>
+                <small class="text-muted">Join us and stay prepared</small>
+            </div>
+            <div class="card-body p-4">
+                <form method="POST">
+                    {{ form.hidden_tag() }}
+
+                    <div class="row">
+                        <!-- Username -->
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-muted">
+                                <i class="fas fa-user-shield me-1 text-primary"></i> Username
+                            </label>
+                            {{ form.username(class="form-control rounded-pill shadow-sm border-0", placeholder="Choose a username") }}
+                            {% if form.username.errors %}
+                                <div class="text-danger small mt-1">
+                                    {% for error in form.username.errors %}
+                                        <i class="fas fa-exclamation-circle"></i> {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Email -->
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-muted">
+                                <i class="fas fa-envelope me-1 text-primary"></i> Email
+                            </label>
+                            {{ form.email(class="form-control rounded-pill shadow-sm border-0", placeholder="Enter your email") }}
+                            {% if form.email.errors %}
+                                <div class="text-danger small mt-1">
+                                    {% for error in form.email.errors %}
+                                        <i class="fas fa-exclamation-circle"></i> {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <!-- First Name -->
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-muted">
+                                <i class="fas fa-id-badge me-1 text-primary"></i> First Name
+                            </label>
+                            {{ form.first_name(class="form-control rounded-pill shadow-sm border-0", placeholder="Enter first name") }}
+                        </div>
+
+                        <!-- Last Name -->
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-muted">
+                                <i class="fas fa-id-badge me-1 text-primary"></i> Last Name
+                            </label>
+                            {{ form.last_name(class="form-control rounded-pill shadow-sm border-0", placeholder="Enter last name") }}
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <!-- Role -->
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-muted">
+                                <i class="fas fa-user-tag me-1 text-primary"></i> Role
+                            </label>
+                            {{ form.role(class="form-control rounded-pill shadow-sm border-0") }}
+                        </div>
+
+                        <!-- Barangay -->
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-muted">
+                                <i class="fas fa-map-marker-alt me-1 text-primary"></i> Barangay
+                            </label>
+                            {{ form.barangay(class="form-control rounded-pill shadow-sm border-0") }}
+                        </div>
+                    </div>
+
+                    <!-- Phone -->
+                    <div class="mb-3">
+                        <label class="form-label text-muted">
+                            <i class="fas fa-phone me-1 text-primary"></i> Phone
+                        </label>
+                        {{ form.phone(class="form-control rounded-pill shadow-sm border-0", placeholder="Enter phone number") }}
+                    </div>
+
+                    <div class="row">
+                        <!-- Password -->
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-muted">
+                                <i class="fas fa-lock me-1 text-primary"></i> Password
+                            </label>
+                            <div class="input-group">
+                                {{ form.password(class="form-control rounded-start-pill shadow-sm border-0", id="regPassword", placeholder="Create password", minlength="8") }}
+                                <button type="button" class="btn btn-outline-primary rounded-end-pill" id="toggleRegPassword">
+                                    <i class="fas fa-eye" id="regEyeIcon"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Confirm Password -->
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-muted">
+                                <i class="fas fa-lock me-1 text-primary"></i> Confirm Password
+                            </label>
+                            <div class="input-group">
+                                {{ form.password2(class="form-control rounded-start-pill shadow-sm border-0", id="regPassword2", placeholder="Confirm password", minlength="8") }}
+                                <button type="button" class="btn btn-outline-primary rounded-end-pill" id="toggleRegPassword2">
+                                    <i class="fas fa-eye" id="regEyeIcon2"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Submit -->
+                    <div class="d-grid mt-3">
+                        {{ form.submit(class="btn rounded-pill shadow-sm", style="background:#1976d2; color:white; font-weight:600;") }}
+                    </div>
+                </form>
+
+                <hr>
+                <div class="text-center">
+                    <p class="mb-0">Already have an account? 
+                        <a href="{{ url_for('login') }}" style="color:#0d47a1; font-weight:600;">Login here</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Toggle password 1
+document.getElementById('toggleRegPassword').addEventListener('click', function() {
+    const password = document.getElementById('regPassword');
+    const eyeIcon = document.getElementById('regEyeIcon');
+    
+    if (password.type === 'password') {
+        password.type = 'text';
+        eyeIcon.classList.replace('fa-eye', 'fa-eye-slash');
+    } else {
+        password.type = 'password';
+        eyeIcon.classList.replace('fa-eye-slash', 'fa-eye');
+    }
+});
+
+// Toggle password 2
+document.getElementById('toggleRegPassword2').addEventListener('click', function() {
+    const password2 = document.getElementById('regPassword2');
+    const eyeIcon2 = document.getElementById('regEyeIcon2');
+    
+    if (password2.type === 'password') {
+        password2.type = 'text';
+        eyeIcon2.classList.replace('fa-eye', 'fa-eye-slash');
+    } else {
+        password2.type = 'password';
+        eyeIcon2.classList.replace('fa-eye-slash', 'fa-eye');
+    }
+});
+</script>
+{% endblock %}

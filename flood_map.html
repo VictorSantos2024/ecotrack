@@ -1,0 +1,77 @@
+
+{% extends "base.html" %}
+
+{% block title %}Real-time Flood Map - EcoTrack{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5><i class="fas fa-map me-2"></i>Real-time Flood Mapping</h5>
+                <div>
+                    <button class="btn btn-outline-primary btn-sm me-2" onclick="refreshMap()">
+                        <i class="fas fa-sync-alt"></i> Refresh
+                    </button>
+                    <button class="btn btn-outline-info btn-sm" onclick="showLegend()">
+                        <i class="fas fa-info-circle"></i> Legend
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div style="height: 70vh;">
+                    {{ map_html|safe }}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Legend Modal -->
+<div class="modal fade" id="legendModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Map Legend</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <h6>Flood Levels:</h6>
+                <div class="d-flex align-items-center mb-2">
+                    <div style="width: 20px; height: 20px; background-color: green; border-radius: 50%;" class="me-2"></div>
+                    <span>Low Level Flooding</span>
+                </div>
+                <div class="d-flex align-items-center mb-2">
+                    <div style="width: 20px; height: 20px; background-color: orange; border-radius: 50%;" class="me-2"></div>
+                    <span>Medium Level Flooding</span>
+                </div>
+                <div class="d-flex align-items-center mb-2">
+                    <div style="width: 20px; height: 20px; background-color: red; border-radius: 50%;" class="me-2"></div>
+                    <span>High Level Flooding</span>
+                </div>
+                <div class="d-flex align-items-center mb-3">
+                    <div style="width: 20px; height: 20px; background-color: darkred; border-radius: 50%;" class="me-2"></div>
+                    <span>Critical Level Flooding</span>
+                </div>
+                
+                <h6>Markers:</h6>
+                <div class="d-flex align-items-center mb-2">
+                    <i class="fas fa-home text-primary me-2"></i>
+                    <span>Safe Zones/Evacuation Centers</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function refreshMap() {
+    location.reload();
+}
+
+function showLegend() {
+    var legendModal = new bootstrap.Modal(document.getElementById('legendModal'));
+    legendModal.show();
+}
+</script>
+{% endblock %}

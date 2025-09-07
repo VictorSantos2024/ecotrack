@@ -1,0 +1,45 @@
+
+{% extends "base.html" %}
+
+{% block title %}Evacuation Routes - {{ barangay }} - EcoTrack{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-route me-2"></i>Evacuation Routes for {{ barangay }}</h5>
+            </div>
+            <div class="card-body p-0">
+                <div style="height: 70vh;">
+                    {{ map_html|safe }}
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6>Emergency Contacts</h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <strong>MDRRMO Office:</strong><br>
+                        <a href="tel:+639394008004">0939 400 8004</a><br>
+                        <i class="fas fa-envelope me-1"></i><a href="mailto:tagudinmdrrmo@gmail.com">tagudinmdrrmo@gmail.com</a><br>
+                        <i class="fab fa-facebook me-1"></i><a href="https://web.facebook.com/profile.php?id=100069411570562" target="_blank" rel="noopener">Facebook Page</a>
+                    </div>
+                    <div class="col-md-4">
+                        <strong>Local Police:</strong><br>
+                        Emergency: 117
+                    </div>
+                    <div class="col-md-4">
+                        <strong>Fire Department:</strong><br>
+                        Emergency: 116
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,425 @@
+
+{% extends "base.html" %}
+
+{% block title %}Report Flood - EcoTrack{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0">Report Flood Incident</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST" enctype="multipart/form-data">
+                    {{ form.hidden_tag() }}
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                {{ form.location.label(class="form-label") }}
+                                {{ form.location(class="form-control", id="location") }}
+                                {% if form.location.errors %}
+                                    <div class="text-danger">
+                                        {% for error in form.location.errors %}
+                                            <small>{{ error }}</small>
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                {{ form.barangay.label(class="form-label") }}
+                                {{ form.barangay(class="form-control", id="barangay", disabled=true) }}
+                                {% if form.barangay.errors %}
+                                    <div class="text-danger">
+                                        {% for error in form.barangay.errors %}
+                                            <small>{{ error }}</small>
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                {{ form.flood_level.label(class="form-label") }}
+                                {{ form.flood_level(class="form-control", id="flood_level", onchange="updateRiskAssessment()") }}
+                                {% if form.flood_level.errors %}
+                                    <div class="text-danger">
+                                        {% for error in form.flood_level.errors %}
+                                            <small>{{ error }}</small>
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                {{ form.weather_condition.label(class="form-label") }}
+                                {{ form.weather_condition(class="form-control", id="weather_condition", onchange="updateRiskAssessment()") }}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Real-time Risk Assessment -->
+                    <div class="mb-3" id="risk-assessment" style="display: none;">
+                        <div class="card border-info">
+                            <div class="card-header bg-info text-white">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-chart-line me-2"></i>Real-time Risk Assessment
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <p><strong>Estimated Risk Score:</strong> <span id="risk-score" class="badge bg-secondary">Calculating...</span></p>
+                                        <p><strong>Risk Level:</strong> <span id="risk-level" class="badge bg-secondary">-</span></p>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <p><strong>Recommended Action:</strong></p>
+                                        <div id="risk-suggestion" class="text-muted">Select flood level and weather condition to see recommendations</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        {{ form.description.label(class="form-label") }}
+                        {{ form.description(class="form-control", rows="4", id="description") }}
+                        {% if form.description.errors %}
+                            <div class="text-danger">
+                                {% for error in form.description.errors %}
+                                    <small>{{ error }}</small>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Location</label>
+                        <div class="row">
+                            <div class="col-md-8">
+                                <button type="button" class="btn btn-outline-success mb-2" onclick="getLocation()">
+                                    <i class="fas fa-map-marker-alt me-2"></i>Get My Location
+                                </button>
+                                <div id="location-info" class="text-muted small"></div>
+                                {{ form.latitude(id="latitude") }}
+                                {{ form.longitude(id="longitude") }}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        {{ form.flood_images.label(class="form-label") }}
+                        <div class="row">
+                            <div class="col-md-6">
+                                {{ form.flood_images(class="form-control", multiple=true, onchange="previewMultipleImages(this)", id="flood_images") }}
+                                <div class="form-text">Upload up to 5 flood incident photos</div>
+                            </div>
+                            <div class="col-md-6">
+                                <button type="button" class="btn btn-outline-primary" onclick="openCamera()">
+                                    <i class="fas fa-camera me-2"></i>Take Photos
+                                </button>
+                            </div>
+                        </div>
+                        <div id="cameraSection" class="mt-3" style="display: none;">
+                            <video id="camera" width="100%" height="300" autoplay style="border-radius: 0.5rem;"></video>
+                            <div class="text-center mt-2">
+                                <button type="button" class="btn btn-success me-2" onclick="capturePhoto()">
+                                    <i class="fas fa-camera me-1"></i>Capture (<span id="photoCount">0</span>/5)
+                                </button>
+                                <button type="button" class="btn btn-secondary" onclick="closeCamera()">
+                                    <i class="fas fa-times me-1"></i>Done
+                                </button>
+                            </div>
+                            <canvas id="photoCanvas" style="display: none;"></canvas>
+                        </div>
+                        <div id="imagePreviewContainer" class="mt-2"></div>
+                    </div>
+                    
+                    <div class="d-grid">
+                        {{ form.submit(class="btn btn-primary btn-lg") }}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let stream = null;
+let capturedPhotos = [];
+
+function getLocation() {
+    if (!navigator.geolocation) {
+        alert('Geolocation is not supported by this browser.');
+        return;
+    }
+    navigator.geolocation.getCurrentPosition(async function(position) {
+        const lat = position.coords.latitude;
+        const lon = position.coords.longitude;
+        document.getElementById('latitude').value = lat;
+        document.getElementById('longitude').value = lon;
+        document.getElementById('location-info').innerHTML = 
+            `<i class="fas fa-check-circle text-success"></i> Location captured: ${lat.toFixed(6)}, ${lon.toFixed(6)} (±${(position.coords.accuracy||0).toFixed(0)}m)`;
+        const locInput = document.getElementById('location');
+        if (locInput && !locInput.value) {
+            const nice = await reverseGeocode(lat, lon);
+            if (nice) locInput.value = nice;
+        }
+    }, function(error) {
+        alert('Error getting location: ' + error.message);
+    }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+}
+
+let watchId = null;
+function startWatchingLocation() {
+    if (!navigator.geolocation) return;
+    if (watchId !== null) return;
+    watchId = navigator.geolocation.watchPosition(function(position) {
+        const lat = position.coords.latitude;
+        const lon = position.coords.longitude;
+        const acc = position.coords.accuracy || 0;
+        // Update only if new reading is more accurate or we don't have one
+        const currentLat = parseFloat(document.getElementById('latitude').value || '0');
+        const currentLon = parseFloat(document.getElementById('longitude').value || '0');
+        const hadCoords = !isNaN(currentLat) && !isNaN(currentLon) && (document.getElementById('latitude').value);
+        document.getElementById('latitude').value = lat;
+        document.getElementById('longitude').value = lon;
+        document.getElementById('location-info').innerHTML = 
+            `<i class="fas fa-location-arrow text-primary"></i> Tracking location: ${lat.toFixed(6)}, ${lon.toFixed(6)} (±${acc.toFixed(0)}m)`;
+    }, function(err) {
+        // stop if user denies
+        stopWatchingLocation();
+    }, { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
+}
+function stopWatchingLocation() {
+    if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+        watchId = null;
+    }
+}
+
+function previewMultipleImages(input) {
+    const container = document.getElementById('imagePreviewContainer');
+    container.innerHTML = '';
+    
+    if (input.files && input.files.length > 0) {
+        Array.from(input.files).slice(0, 5).forEach((file, index) => {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const div = document.createElement('div');
+                div.className = 'image-preview-item d-inline-block me-2 mb-2';
+                div.innerHTML = `
+                    <img src="${e.target.result}" class="image-preview" style="width: 100px; height: 100px; object-fit: cover; border-radius: 5px;">
+                    <div class="text-center small mt-1">${index + 1}</div>
+                `;
+                container.appendChild(div);
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+}
+
+async function openCamera() {
+    const cameraSection = document.getElementById('cameraSection');
+    const video = document.getElementById('camera');
+    
+    try {
+        stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { 
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+            } 
+        });
+        video.srcObject = stream;
+        cameraSection.style.display = 'block';
+        updatePhotoCount();
+    } catch (err) {
+        alert('Camera access denied or not available: ' + err.message);
+    }
+}
+
+function capturePhoto() {
+    if (capturedPhotos.length >= 5) {
+        alert('Maximum 5 photos allowed');
+        return;
+    }
+    
+    const video = document.getElementById('camera');
+    const canvas = document.getElementById('photoCanvas');
+    const context = canvas.getContext('2d');
+    
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    context.drawImage(video, 0, 0);
+    
+    canvas.toBlob(function(blob) {
+        const file = new File([blob], `flood_photo_${capturedPhotos.length + 1}.jpg`, { type: 'image/jpeg' });
+        capturedPhotos.push(file);
+        
+        // Update file input
+        const dataTransfer = new DataTransfer();
+        capturedPhotos.forEach(photo => dataTransfer.items.add(photo));
+        document.getElementById('flood_images').files = dataTransfer.files;
+        
+        previewMultipleImages(document.getElementById('flood_images'));
+        updatePhotoCount();
+        
+        if (capturedPhotos.length >= 5) {
+            closeCamera();
+        }
+    }, 'image/jpeg', 0.8);
+}
+
+function updatePhotoCount() {
+    document.getElementById('photoCount').textContent = capturedPhotos.length;
+}
+
+function closeCamera() {
+    const cameraSection = document.getElementById('cameraSection');
+    if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        stream = null;
+    }
+    cameraSection.style.display = 'none';
+}
+
+// Auto-get location on page load
+window.addEventListener('load', function() {
+    // Ensure disabled barangay still submits its value by mirroring it into a hidden input
+    const brgySelect = document.getElementById('barangay');
+    if (brgySelect) {
+        let hidden = document.querySelector('input[type="hidden"][name="barangay"]');
+        if (!hidden) {
+            hidden = document.createElement('input');
+            hidden.type = 'hidden';
+            hidden.name = 'barangay';
+            brgySelect.form.appendChild(hidden);
+        }
+        hidden.value = brgySelect.value;
+        brgySelect.addEventListener('change', function() {
+            hidden.value = brgySelect.value;
+        });
+    }
+
+    if (navigator.geolocation) {
+        getLocation();
+        startWatchingLocation();
+        // Stop continuous watch after 20s to save battery
+        setTimeout(stopWatchingLocation, 20000);
+    }
+});
+
+// Optional: reverse geocode lat/lon to human-readable location string for the Location field
+async function reverseGeocode(lat, lon) {
+    try {
+        const resp = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`);
+        if (!resp.ok) return null;
+        const data = await resp.json();
+        return data.display_name || null;
+    } catch (e) { return null; }
+}
+
+// getLocation already fills the 'location' field via reverseGeocode above
+
+// Real-time risk assessment
+function updateRiskAssessment() {
+    const floodLevel = document.getElementById('flood_level').value;
+    const weatherCondition = document.getElementById('weather_condition').value;
+    
+    if (!floodLevel || !weatherCondition) {
+        document.getElementById('risk-assessment').style.display = 'none';
+        return;
+    }
+    
+    // Show risk assessment
+    document.getElementById('risk-assessment').style.display = 'block';
+    
+    // Calculate estimated risk score
+    let riskScore = 0;
+    
+    // Flood level multiplier (40% of total score)
+    const levelMultipliers = {'low': 0.25, 'medium': 0.5, 'high': 0.75, 'critical': 1.0};
+    riskScore += levelMultipliers[floodLevel] * 40;
+    
+    // Weather condition factor
+    if (weatherCondition === 'stormy') {
+        riskScore += 15;
+    } else if (weatherCondition === 'rainy') {
+        riskScore += 10;
+    } else if (weatherCondition === 'cloudy') {
+        riskScore += 5;
+    }
+    
+    // Time of day factor
+    const currentHour = new Date().getHours();
+    if (currentHour >= 22 || currentHour <= 6) {
+        riskScore += 5;
+    }
+    
+    // Cap at 100
+    riskScore = Math.min(riskScore, 100);
+    
+    // Update display
+    const riskScoreElement = document.getElementById('risk-score');
+    const riskLevelElement = document.getElementById('risk-level');
+    const riskSuggestionElement = document.getElementById('risk-suggestion');
+    
+    riskScoreElement.textContent = riskScore.toFixed(1) + '/100';
+    
+    // Set risk level and color
+    let riskLevel, badgeClass;
+    if (riskScore <= 30) {
+        riskLevel = 'Low';
+        badgeClass = 'bg-success';
+    } else if (riskScore <= 60) {
+        riskLevel = 'Medium';
+        badgeClass = 'bg-warning';
+    } else if (riskScore <= 80) {
+        riskLevel = 'High';
+        badgeClass = 'bg-danger';
+    } else {
+        riskLevel = 'Critical';
+        badgeClass = 'bg-dark';
+    }
+    
+    riskLevelElement.textContent = riskLevel;
+    riskLevelElement.className = 'badge ' + badgeClass;
+    riskScoreElement.className = 'badge ' + badgeClass;
+    
+    // Set suggestion
+    let suggestion = '';
+    if (riskScore <= 30) {
+        suggestion = 'Monitor the situation and stay informed. Keep emergency supplies ready.';
+    } else if (riskScore <= 60) {
+        suggestion = 'Prepare for possible evacuation. Move valuable items to higher ground.';
+    } else if (riskScore <= 80) {
+        suggestion = 'Consider evacuating to safer areas. Follow emergency protocols.';
+    } else {
+        suggestion = 'EVACUATE IMMEDIATELY! This is a life-threatening situation.';
+    }
+    
+    riskSuggestionElement.textContent = suggestion;
+    
+    // Update card border color based on risk
+    const riskCard = document.querySelector('#risk-assessment .card');
+    riskCard.className = 'card border-' + (riskScore <= 30 ? 'success' : riskScore <= 60 ? 'warning' : riskScore <= 80 ? 'danger' : 'dark');
+    
+    const riskHeader = document.querySelector('#risk-assessment .card-header');
+    riskHeader.className = 'card-header bg-' + (riskScore <= 30 ? 'success' : riskScore <= 60 ? 'warning' : riskScore <= 80 ? 'danger' : 'dark') + ' text-white';
+}
+
+// Initialize risk assessment on page load
+document.addEventListener('DOMContentLoaded', function() {
+    updateRiskAssessment();
+});
+</script>
+{% endblock %}

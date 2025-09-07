@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+
+{% block title %}Report Submitted - EcoTrack{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-10">
+        <!-- Success Header -->
+        <div class="card border-success mb-4">
+            <div class="card-header bg-success text-white">
+                <h4 class="mb-0">
+                    <i class="fas fa-check-circle me-2"></i>Flood Report Submitted Successfully!
+                </h4>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h5>Report Details</h5>
+                        <p><strong>Location:</strong> {{ report.location }}</p>
+                        <p><strong>Barangay:</strong> {{ report.barangay }}</p>
+                        <p><strong>Flood Level:</strong> 
+                            <span class="badge bg-{{ 'success' if report.flood_level == 'low' else 'warning' if report.flood_level == 'medium' else 'danger' if report.flood_level == 'high' else 'dark' }}">
+                                {{ report.flood_level.title() }}
+                            </span>
+                        </p>
+                        <p><strong>Risk Score:</strong> 
+                            <span class="badge bg-{{ 'success' if report.risk_score <= 30 else 'warning' if report.risk_score <= 60 else 'danger' if report.risk_score <= 80 else 'dark' }}">
+                                {{ "%.1f"|format(report.risk_score) }}/100
+                            </span>
+                        </p>
+                    </div>
+                    <div class="col-md-6">
+                        <h5>Weather Conditions</h5>
+                        <p><strong>Condition:</strong> {{ report.weather_condition.title() if report.weather_condition else 'Not specified' }}</p>
+                        <p><strong>Reported At:</strong> {{ report.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                        {% if report.evacuation_needed %}
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Evacuation Recommended</strong>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Suggestions -->
+        {% if suggestions %}
+        <div class="card border-{{ 'success' if suggestions.priority == 'low' else 'warning' if suggestions.priority == 'medium' else 'danger' if suggestions.priority == 'high' else 'dark' }} mb-4">
+            <div class="card-header bg-{{ 'success' if suggestions.priority == 'low' else 'warning' if suggestions.priority == 'medium' else 'danger' if suggestions.priority == 'high' else 'dark' }} text-white">
+                <h4 class="mb-0">
+                    <i class="fas fa-{{ 'info-circle' if suggestions.priority == 'low' else 'exclamation-triangle' if suggestions.priority == 'medium' else 'exclamation-circle' if suggestions.priority == 'high' else 'times-circle' }} me-2"></i>
+                    {{ suggestions.title }}
+                </h4>
+            </div>
+            <div class="card-body">
+                <p class="lead">{{ suggestions.description }}</p>
+                
+                <h5>Recommended Actions:</h5>
+                <div class="row">
+                    <div class="col-md-8">
+                        <ul class="list-group list-group-flush">
+                            {% for action in suggestions.actions %}
+                            <li class="list-group-item d-flex align-items-start">
+                                <i class="fas fa-arrow-right text-primary me-3 mt-1"></i>
+                                <span>{{ action }}</span>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Safe Zones -->
+        {% if safe_zones %}
+        <div class="card border-info mb-4">
+            <div class="card-header bg-info text-white">
+                <h4 class="mb-0">
+                    <i class="fas fa-shield-alt me-2"></i>Nearby Safe Zones
+                </h4>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for zone in safe_zones %}
+                    <div class="col-md-6 mb-3">
+                        <div class="card">
+                            <div class="card-body">
+                                <h6 class="card-title">{{ zone.name }}</h6>
+                                <p class="card-text">
+                                    <small class="text-muted">{{ zone.address }}</small><br>
+                                    <strong>Capacity:</strong> {{ zone.capacity }} people<br>
+                                    {% if zone.contact_person %}
+                                    <strong>Contact:</strong> {{ zone.contact_person }}<br>
+                                    {% endif %}
+                                    {% if zone.contact_phone %}
+                                    <strong>Phone:</strong> {{ zone.contact_phone }}
+                                    {% endif %}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Emergency Contacts -->
+        <div class="card border-danger mb-4">
+            <div class="card-header bg-danger text-white">
+                <h4 class="mb-0">
+                    <i class="fas fa-phone me-2"></i>Emergency Contacts
+                </h4>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-md-3">
+                        <h5>Emergency</h5>
+                        <p class="h4 text-danger">911</p>
+                    </div>
+                    <div class="col-md-3">
+                        <h5>Police</h5>
+                        <p class="h5">117</p>
+                    </div>
+                    <div class="col-md-3">
+                        <h5>Fire</h5>
+                        <p class="h5">160</p>
+                    </div>
+                    <div class="col-md-3">
+                        <h5>Medical</h5>
+                        <p class="h5">143</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="text-center">
+            <a href="{{ url_for('index') }}" class="btn btn-primary btn-lg me-3">
+                <i class="fas fa-home me-2"></i>Go to Dashboard
+            </a>
+            <a href="{{ url_for('report_flood') }}" class="btn btn-outline-primary btn-lg me-3">
+                <i class="fas fa-plus me-2"></i>Report Another Incident
+            </a>
+            {% if report.latitude and report.longitude %}
+            <a href="{{ url_for('evacuation_routes', barangay=report.barangay) }}" class="btn btn-outline-info btn-lg">
+                <i class="fas fa-route me-2"></i>View Evacuation Routes
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+// Auto-refresh page every 5 minutes to check for new alerts
+setTimeout(function() {
+    location.reload();
+}, 300000);
+
+// Show emergency alert if high risk
+{% if suggestions and suggestions.priority in ['high', 'critical'] %}
+document.addEventListener('DOMContentLoaded', function() {
+    // Show browser notification if permission granted
+    if (Notification && Notification.permission === 'granted') {
+        new Notification('Flood Alert - {{ suggestions.title }}', {
+            body: '{{ suggestions.description }}',
+            icon: '/static/images/mdrrmo_logo.jpg'
+        });
+    }
+});
+{% endif %}
+</script>
+{% endblock %}

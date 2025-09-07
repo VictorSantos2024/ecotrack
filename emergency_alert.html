@@ -1,0 +1,96 @@
+
+{% extends "base.html" %}
+
+{% block title %}Send Emergency Alert - EcoTrack{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header bg-danger text-white">
+                <h4 class="mb-0"><i class="fas fa-broadcast-tower me-2"></i>Send Emergency Alert</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    {{ form.hidden_tag() }}
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                {{ form.alert_type.label(class="form-label") }}
+                                {{ form.alert_type(class="form-control") }}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                {{ form.severity.label(class="form-label") }}
+                                {{ form.severity(class="form-control") }}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        {{ form.title.label(class="form-label") }}
+                        {{ form.title(class="form-control") }}
+                    </div>
+                    
+                    <div class="mb-3">
+                        {{ form.message.label(class="form-label") }}
+                        {{ form.message(class="form-control", rows="4") }}
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Affected Barangays (optional)</label>
+                        {{ form.affected_barangays(class="form-select", multiple=true, size=8) }}
+                        <div class="form-text">Leave empty to send to all users</div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Location (Click on map to set)</label>
+                                <div id="alert-map" style="height: 300px;"></div>
+                                {{ form.latitude() }}
+                                {{ form.longitude() }}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                {{ form.radius.label(class="form-label") }}
+                                {{ form.radius(class="form-control") }}
+                            </div>
+                            <div class="mb-3">
+                                {{ form.expires_at.label(class="form-label") }}
+                                {{ form.expires_at(class="form-control") }}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid">
+                        {{ form.submit(class="btn btn-danger btn-lg") }}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"/>
+
+<script>
+var map = L.map('alert-map').setView([16.0198, 120.2299], 13);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+var marker = null;
+
+map.on('click', function(e) {
+    if (marker) {
+        map.removeLayer(marker);
+    }
+    marker = L.marker(e.latlng).addTo(map);
+    document.getElementById('latitude').value = e.latlng.lat;
+    document.getElementById('longitude').value = e.latlng.lng;
+});
+</script>
+{% endblock %}

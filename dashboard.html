@@ -1,0 +1,60 @@
+
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5>Recent Flood Reports</h5>
+            </div>
+            <div class="card-body">
+                {% if reports %}
+                    {% for report in reports %}
+                        <div class="alert flood-level-{{ report.flood_level }} mb-2">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <strong>{{ report.location }}, {{ report.barangay }}</strong>
+                                    <span class="badge bg-secondary">{{ report.flood_level.title() }}</span>
+                                </div>
+                                <small class="text-muted">{{ report.created_at|format_dt('%Y-%m-%d %H:%M') }}</small>
+                            </div>
+                            <p class="mb-1">{{ report.description }}</p>
+                            <small>Reported by: {{ report.reporter.first_name }} {{ report.reporter.last_name }}</small>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted">No recent reports</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card mb-3">
+            <div class="card-body text-center">
+                <h5 class="card-title">Flood Risk Prediction</h5>
+                <div class="h2">
+                    {% if prediction == "High Risk" %}
+                        <span class="text-danger"><i class="fas fa-exclamation-triangle"></i> {{ prediction }}</span>
+                    {% elif prediction == "Moderate Risk" %}
+                        <span class="text-warning"><i class="fas fa-exclamation-circle"></i> {{ prediction }}</span>
+                    {% else %}
+                        <span class="text-success"><i class="fas fa-check-circle"></i> {{ prediction }}</span>
+                    {% endif %}
+                </div>
+                <small class="text-muted">Based on weather forecast and historical data</small>
+            </div>
+        </div>
+        
+        {% if current_user.role in ['resident', 'brgy_official'] %}
+            <div class="card">
+                <div class="card-body text-center">
+                    <h5 class="card-title">Report Flood</h5>
+                    <p class="card-text">Help your community by reporting flood incidents</p>
+                </div>
+            </div>
+        {% endif %}
+        
+    </div>
+</div>
+{% endblock %}

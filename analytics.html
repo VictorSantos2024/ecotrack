@@ -1,0 +1,140 @@
+
+{% extends "base.html" %}
+
+{% block title %}Analytics - EcoTrack{% endblock %}
+
+{% block content %}
+<h2>Data Analytics</h2>
+
+<div class="card mb-4">
+    <div class="card-header">
+        <h5>Filter Reports</h5>
+    </div>
+    <div class="card-body">
+        <form method="GET">
+            <div class="row">
+                <div class="col-md-2">
+                    <input type="date" class="form-control" name="date_from" placeholder="From Date" value="{{ request.args.get('date_from', '') }}">
+                </div>
+                <div class="col-md-2">
+                    <input type="date" class="form-control" name="date_to" placeholder="To Date" value="{{ request.args.get('date_to', '') }}">
+                </div>
+                <div class="col-md-2">
+                    <input type="text" class="form-control" name="barangay" placeholder="Barangay" value="{{ request.args.get('barangay', '') }}">
+                </div>
+                <div class="col-md-2">
+                    <select class="form-control" name="flood_level">
+                        <option value="">All Levels</option>
+                        <option value="low" {% if request.args.get('flood_level') == 'low' %}selected{% endif %}>Low</option>
+                        <option value="medium" {% if request.args.get('flood_level') == 'medium' %}selected{% endif %}>Medium</option>
+                        <option value="high" {% if request.args.get('flood_level') == 'high' %}selected{% endif %}>High</option>
+                        <option value="critical" {% if request.args.get('flood_level') == 'critical' %}selected{% endif %}>Critical</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary">Filter</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5>Flood Level Distribution</h5>
+            </div>
+            <div class="card-body">
+                <div id="flood-levels-chart"></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5>Top 10 Barangays</h5>
+            </div>
+            <div class="card-body">
+                <div id="barangays-chart"></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5>Reports Timeline</h5>
+            </div>
+            <div class="card-body">
+                <div id="timeline-chart"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-header">
+        <h5>Filtered Reports ({{ reports|length }} total)</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Location</th>
+                        <th>Barangay</th>
+                        <th>Level</th>
+                        <th>Reporter</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for report in reports[:50] %}
+                        <tr>
+                            <td>{{ report.created_at|format_dt('%Y-%m-%d %H:%M') }}</td>
+                            <td>{{ report.location }}</td>
+                            <td>{{ report.barangay }}</td>
+                            <td><span class="badge bg-secondary">{{ report.flood_level.title() }}</span></td>
+                            <td>{{ report.reporter.first_name }} {{ report.reporter.last_name }}</td>
+                            <td><span class="badge bg-info">{{ report.status.title() }}</span></td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% if reports|length > 50 %}
+                <p class="text-muted">Showing first 50 results. Use filters to narrow down.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Flood Levels Chart
+    var floodData = [{
+        values: {{ charts.flood_levels.values | safe }},
+        labels: {{ charts.flood_levels.labels | safe }},
+        type: 'pie'
+    }];
+    Plotly.newPlot('flood-levels-chart', floodData);
+
+    // Barangays Chart
+    var barangayData = [{
+        x: {{ charts.barangays.labels | safe }},
+        y: {{ charts.barangays.values | safe }},
+        type: 'bar'
+    }];
+    Plotly.newPlot('barangays-chart', barangayData);
+
+    // Timeline Chart
+    var timelineData = [{
+        x: {{ charts.timeline.dates | safe }},
+        y: {{ charts.timeline.counts | safe }},
+        type: 'scatter',
+        mode: 'lines+markers'
+    }];
+    Plotly.newPlot('timeline-chart', timelineData);
+</script>
+{% endblock %}
