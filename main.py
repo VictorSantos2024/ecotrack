@@ -19,14 +19,32 @@ import json
 import os
 import secrets
 import base64
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+# Try to load environment variables from .env file
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+    print("Environment variables loaded from .env file")
+except ImportError:
+    print("Warning: python-dotenv package not installed. Environment variables will not be loaded from .env file")
+except Exception as e:
+    print(f"Warning: Could not load .env file: {e}")
+
+# Email functionality setup
 try:
     import smtplib
     from email.mime.text import MimeText
     from email.mime.multipart import MimeMultipart
     EMAIL_AVAILABLE = True
+    print("Email functionality enabled")
 except ImportError:
     EMAIL_AVAILABLE = False
     print("Email functionality disabled due to import issues")
+
+# Other imports
 import csv
 import io
 import threading
@@ -35,7 +53,15 @@ import folium
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = secrets.token_hex(16)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///ecotrack.db'
+# MySQL Database Configuration
+# Update these values according to your XAMPP MySQL setup
+MYSQL_USERNAME = 'root'  # Default XAMPP username
+MYSQL_PASSWORD = ''      # Default XAMPP password (empty)
+MYSQL_HOST = 'localhost' # XAMPP MySQL host
+MYSQL_PORT = '3306'      # XAMPP MySQL port
+MYSQL_DATABASE = 'ecotrack'  # Your database name
+
+app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql+pymysql://{MYSQL_USERNAME}:{MYSQL_PASSWORD}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DATABASE}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=2)
 # Security-related cookie settings
@@ -183,6 +209,14 @@ class Feedback(db.Model):
     text = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+class PasswordResetToken(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    token = db.Column(db.String(100), unique=True, nullable=False)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    user = db.relationship('User', backref='password_reset_tokens')
+
 class EvacuationRoute(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(200), nullable=False)
@@ -207,6 +241,18 @@ class WeatherData(db.Model):
     flood_occurred = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+class FloodActionSuggestion(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    flood_level = db.Column(db.String(20), nullable=False)  # low, medium, high, critical
+    risk_score_min = db.Column(db.Float, nullable=False)
+    risk_score_max = db.Column(db.Float, nullable=False)
+    title = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text, nullable=False)
+    actions = db.Column(db.Text, nullable=False)  # JSON array of actions
+    priority = db.Column(db.String(20), nullable=False)  # low, medium, high, critical
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
@@ -224,6 +270,10 @@ def check_session_security():
                 flash('Session expired. Please login again.')
                 return redirect(url_for('login'))
         session['last_activity'] = datetime.now().isoformat()
+
+    # Clean up expired password reset tokens
+    PasswordResetToken.query.filter(PasswordResetToken.expires_at < datetime.utcnow()).delete()
+    db.session.commit()
 
     # Nothing else here; cache headers applied globally below
     
@@ -517,6 +567,15 @@ class ChangePasswordForm(FlaskForm):
     confirm_new_password = PasswordField('Confirm New Password', validators=[DataRequired(), EqualTo('new_password')])
     submit = SubmitField('Update Password')
 
+class ForgotPasswordForm(FlaskForm):
+    email = StringField('Email', validators=[DataRequired(), Email()])
+    submit = SubmitField('Send Reset Link')
+
+class ResetPasswordForm(FlaskForm):
+    new_password = PasswordField('New Password', validators=[DataRequired(), Length(min=8)])
+    confirm_new_password = PasswordField('Confirm New Password', validators=[DataRequired(), EqualTo('new_password')])
+    submit = SubmitField('Reset Password')
+
 # Helper Functions
 def create_admin_user():
     """Create default admin user if it doesn't exist"""
@@ -525,7 +584,7 @@ def create_admin_user():
         admin = User(
             username='admin',
             email='admin@ecotrack.com',
-            password_hash=generate_password_hash('admin123'),
+            password_hash=generate_password_hash('admin123', method='pbkdf2:sha256'),
             role='admin',
             first_name='System',
             last_name='Administrator',
@@ -535,6 +594,93 @@ def create_admin_user():
         db.session.add(admin)
         db.session.commit()
         print("Admin user created: username=admin, password=admin123")
+
+def create_default_action_suggestions():
+    """Create default flood action suggestions"""
+    if FloodActionSuggestion.query.count() > 0:
+        return  # Already exists
+    
+    suggestions = [
+        # Low Risk (0-30)
+        {
+            'flood_level': 'low',
+            'risk_score_min': 0,
+            'risk_score_max': 30,
+            'title': 'Low Risk - Monitor Situation',
+            'description': 'The flood situation is currently manageable. Continue monitoring and prepare for potential changes.',
+            'actions': json.dumps([
+                'Stay informed through local news and weather updates',
+                'Keep emergency supplies ready',
+                'Monitor water levels in your area',
+                'Avoid walking or driving through flooded areas',
+                'Keep important documents in waterproof containers'
+            ]),
+            'priority': 'low'
+        },
+        # Medium Risk (31-60)
+        {
+            'flood_level': 'medium',
+            'risk_score_min': 31,
+            'risk_score_max': 60,
+            'title': 'Medium Risk - Prepare for Evacuation',
+            'description': 'The flood situation is becoming serious. Prepare for possible evacuation and take precautionary measures.',
+            'actions': json.dumps([
+                'Pack emergency bags with essential items',
+                'Move valuable items to higher ground',
+                'Turn off utilities if instructed',
+                'Stay away from floodwaters',
+                'Keep mobile phones charged',
+                'Inform family members of your location',
+                'Follow evacuation routes if advised'
+            ]),
+            'priority': 'medium'
+        },
+        # High Risk (61-80)
+        {
+            'flood_level': 'high',
+            'risk_score_min': 61,
+            'risk_score_max': 80,
+            'title': 'High Risk - Evacuate Immediately',
+            'description': 'The flood situation is dangerous. Evacuate to safer areas immediately and follow emergency protocols.',
+            'actions': json.dumps([
+                'EVACUATE IMMEDIATELY to higher ground',
+                'Do not attempt to walk or drive through floodwaters',
+                'Take only essential items',
+                'Follow designated evacuation routes',
+                'Go to nearest evacuation center',
+                'Call emergency services if trapped',
+                'Stay away from electrical equipment',
+                'Help elderly and disabled neighbors if safe to do so'
+            ]),
+            'priority': 'high'
+        },
+        # Critical Risk (81-100)
+        {
+            'flood_level': 'critical',
+            'risk_score_min': 81,
+            'risk_score_max': 100,
+            'title': 'CRITICAL RISK - Emergency Evacuation',
+            'description': 'EXTREME DANGER! Immediate evacuation required. This is a life-threatening situation.',
+            'actions': json.dumps([
+                'EVACUATE IMMEDIATELY - DO NOT DELAY',
+                'Call emergency services (911) if you cannot evacuate',
+                'Move to the highest point possible',
+                'Do not return to flooded areas',
+                'Stay with emergency responders',
+                'Use emergency shelters',
+                'Follow all emergency instructions',
+                'Help others only if it is safe to do so'
+            ]),
+            'priority': 'critical'
+        }
+    ]
+    
+    for suggestion in suggestions:
+        action_suggestion = FloodActionSuggestion(**suggestion)
+        db.session.add(action_suggestion)
+    
+    db.session.commit()
+    print("Default flood action suggestions created")
 
 def convert_image_to_base64(file):
     """Convert uploaded file to base64 string"""
@@ -650,32 +796,162 @@ def send_emergency_alerts(alert):
     
     threading.Thread(target=send_alerts_thread).start()
 
+def generate_password_reset_token():
+    """Generate a secure random token for password reset"""
+    return secrets.token_urlsafe(32)
+
+def send_password_reset_email(user, token):
+    """Send password reset email to user via Gmail"""
+    reset_url = url_for('reset_password', token=token, _external=True)
+    
+    subject = "🔐 Password Reset Request - EcoTrack"
+    message = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+            <div style="text-align: center; margin-bottom: 30px;">
+                <h1 style="color: #1976d2; margin: 0;">EcoTrack</h1>
+                <p style="color: #666; margin: 5px 0;">Flood Monitoring System</p>
+            </div>
+            
+            <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                <h2 style="color: #1976d2; margin-top: 0;">Password Reset Request</h2>
+                <p>Hello <strong>{user.first_name} {user.last_name}</strong>,</p>
+                <p>You have requested to reset your password for your EcoTrack account.</p>
+                <p>Click the button below to reset your password:</p>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="{reset_url}" style="background-color: #1976d2; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">Reset My Password</a>
+            </div>
+            
+            <div style="background-color: #fff3cd; padding: 15px; border-radius: 5px; margin: 20px 0;">
+                <p style="margin: 0; color: #856404;"><strong>⚠️ Important:</strong> This link will expire in 1 hour for security reasons.</p>
+            </div>
+            
+            <p>If the button doesn't work, copy and paste this link into your browser:</p>
+            <p style="word-break: break-all; color: #666; background-color: #f8f9fa; padding: 10px; border-radius: 4px;">{reset_url}</p>
+            
+            <div style="border-top: 1px solid #dee2e6; margin-top: 30px; padding-top: 20px;">
+                <p style="color: #666; font-size: 14px; margin: 0;">If you didn't request this password reset, please ignore this email. Your account remains secure.</p>
+                <p style="color: #666; font-size: 12px; margin: 10px 0 0 0;">This is an automated message from EcoTrack System</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    return send_email_alert(user.email, subject, message)
+
 def calculate_flood_risk_score(report_data, weather_data):
-    """Calculate AI-based flood risk score"""
+    """Calculate enhanced AI-based flood risk score"""
     base_score = 0
     
+    # Flood level multiplier (40% of total score)
     level_multipliers = {'low': 0.25, 'medium': 0.5, 'high': 0.75, 'critical': 1.0}
     base_score += level_multipliers.get(report_data.get('flood_level', 'low'), 0.25) * 40
     
-    if weather_data['rainfall'] > 20:
+    # Weather conditions (30% of total score)
+    if weather_data['rainfall'] > 50:
         base_score += 30
+    elif weather_data['rainfall'] > 20:
+        base_score += 20
     elif weather_data['rainfall'] > 10:
-        base_score += 15
-    
-    if weather_data['wind_speed'] > 25:
         base_score += 10
     
+    # Wind speed impact
+    if weather_data['wind_speed'] > 40:
+        base_score += 15
+    elif weather_data['wind_speed'] > 25:
+        base_score += 10
+    elif weather_data['wind_speed'] > 15:
+        base_score += 5
+    
+    # Humidity impact
+    if weather_data['humidity'] > 90:
+        base_score += 10
+    elif weather_data['humidity'] > 80:
+        base_score += 5
+    
+    # Recent reports in same barangay (20% of total score)
     recent_reports = FloodReport.query.filter(
         FloodReport.barangay == report_data.get('barangay'),
         FloodReport.created_at >= datetime.utcnow() - timedelta(days=7)
     ).count()
     
-    if recent_reports > 3:
+    if recent_reports > 5:
         base_score += 20
+    elif recent_reports > 3:
+        base_score += 15
     elif recent_reports > 1:
         base_score += 10
     
+    # Time of day factor (floods at night are more dangerous)
+    current_hour = datetime.now().hour
+    if 22 <= current_hour or current_hour <= 6:  # Night time
+        base_score += 5
+    
+    # Weather condition factor
+    weather_condition = report_data.get('weather_condition', 'sunny')
+    if weather_condition == 'stormy':
+        base_score += 15
+    elif weather_condition == 'rainy':
+        base_score += 10
+    elif weather_condition == 'cloudy':
+        base_score += 5
+    
     return min(base_score, 100)
+
+def get_flood_action_suggestions(flood_level, risk_score):
+    """Get action suggestions based on flood level and risk score"""
+    suggestions = FloodActionSuggestion.query.filter(
+        FloodActionSuggestion.flood_level == flood_level,
+        FloodActionSuggestion.risk_score_min <= risk_score,
+        FloodActionSuggestion.risk_score_max >= risk_score,
+        FloodActionSuggestion.is_active == True
+    ).first()
+    
+    if not suggestions:
+        # Fallback to closest match
+        suggestions = FloodActionSuggestion.query.filter(
+            FloodActionSuggestion.flood_level == flood_level,
+            FloodActionSuggestion.is_active == True
+        ).order_by(FloodActionSuggestion.risk_score_min).first()
+    
+    if suggestions:
+        return {
+            'title': suggestions.title,
+            'description': suggestions.description,
+            'actions': json.loads(suggestions.actions),
+            'priority': suggestions.priority
+        }
+    
+    return None
+
+def send_automatic_flood_alert(report, risk_score, suggestions):
+    """Send automatic flood alert based on risk assessment"""
+    if risk_score >= 70:  # High or critical risk
+        # Create emergency alert
+        alert = EmergencyAlert(
+            alert_type='flood_warning',
+            severity='critical' if risk_score >= 80 else 'high',
+            title=f'🚨 AUTOMATIC FLOOD ALERT - {report.barangay}',
+            message=f'High-risk flood detected at {report.location}. Risk Score: {risk_score:.1f}/100. {suggestions["description"] if suggestions else "Please take immediate precautions."}',
+            affected_barangays=json.dumps([report.barangay]),
+            latitude=report.latitude,
+            longitude=report.longitude,
+            radius=5.0,
+            created_by=report.user_id,
+            expires_at=datetime.utcnow() + timedelta(hours=24)
+        )
+        db.session.add(alert)
+        db.session.commit()
+        
+        # Send emergency alerts
+        send_emergency_alerts(alert)
+        
+        return True
+    return False
 
 def convert_multiple_images_to_base64(files):
     """Convert multiple uploaded files to base64 JSON array"""
@@ -789,7 +1065,7 @@ def login():
         if user and check_password_hash(user.password_hash, form.password.data):
             # If email_alerts is used as active flag and set to False, block login
             if user.email_alerts is False:
-                flash('Your account is deactivated. Please contact an administrator.')
+                flash('Your account is deactivated. Please contact an administrator.', 'error')
                 return render_template('login.html', form=form)
             login_user(user, remember=True)
             user.last_login = datetime.utcnow()
@@ -798,9 +1074,10 @@ def login():
             session['last_activity'] = datetime.now().isoformat()
             session.permanent = True
             db.session.commit()
-            flash(f'Welcome back, {user.first_name}!')
+            flash(f'Welcome back, {user.first_name}!', 'success')
             return redirect(url_for('index'))
-        flash('Invalid username or password')
+        else:
+            flash('Invalid username or password. Please check your credentials and try again.', 'error')
     return render_template('login.html', form=form)
 
 @app.route('/register', methods=['GET', 'POST'])
@@ -820,7 +1097,7 @@ def register():
         user = User(
             username=form.username.data,
             email=form.email.data,
-            password_hash=generate_password_hash(form.password.data),
+            password_hash=generate_password_hash(form.password.data, method='pbkdf2:sha256'),
             role=form.role.data,
             first_name=form.first_name.data,
             last_name=form.last_name.data,
@@ -836,10 +1113,98 @@ def register():
 @app.route('/logout')
 @login_required
 def logout():
+    # Get user info before logout for logging
+    user_info = f"{current_user.username} ({current_user.role})" if current_user.is_authenticated else "Unknown"
+    
+    # Clear Flask-Login session
     logout_user()
+    
+    # Clear all session data
     session.clear()
-    flash('You have been logged out successfully.')
-    return redirect(url_for('login'))
+    
+    # Create response with security headers
+    response = redirect(url_for('login'))
+    
+    # Add comprehensive security headers to prevent caching and back button access
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0, private'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    response.headers['Last-Modified'] = '0'
+    
+    # Clear any authentication-related cookies
+    response.set_cookie('remember_token', '', expires=0)
+    response.set_cookie('session', '', expires=0)
+    response.set_cookie('user_id', '', expires=0)
+    response.set_cookie('user_role', '', expires=0)
+    
+    flash('You have been logged out successfully. All sessions have been cleared.')
+    print(f"User {user_info} logged out successfully")
+    
+    return response
+
+@app.route('/forgot_password', methods=['GET', 'POST'])
+def forgot_password():
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+    
+    form = ForgotPasswordForm()
+    if form.validate_on_submit():
+        user = User.query.filter_by(email=form.email.data).first()
+        if user:
+            # Generate token and save to database
+            token = generate_password_reset_token()
+            expires_at = datetime.utcnow() + timedelta(hours=1)
+            
+            # Delete any existing tokens for this user
+            PasswordResetToken.query.filter_by(user_id=user.id).delete()
+            
+            reset_token = PasswordResetToken(
+                user_id=user.id,
+                token=token,
+                expires_at=expires_at
+            )
+            db.session.add(reset_token)
+            db.session.commit()
+            
+            # Send email
+            if send_password_reset_email(user, token):
+                flash('Password reset link has been sent to your email. Please check your inbox and spam folder.', 'success')
+                print(f"Password reset email sent to {user.email}")
+            else:
+                flash('Error sending email. Please check your Gmail configuration or contact support.', 'error')
+        else:
+            # Don't reveal if email exists or not for security
+            flash('If an account with that email exists, a password reset link has been sent.', 'info')
+        
+        return redirect(url_for('login'))
+    
+    return render_template('forgot_password.html', form=form)
+
+@app.route('/reset_password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+    
+    # Verify token
+    reset_token = PasswordResetToken.query.filter_by(token=token).first()
+    if not reset_token or reset_token.expires_at < datetime.utcnow():
+        flash('Invalid or expired password reset link. Please request a new one.')
+        return redirect(url_for('forgot_password'))
+    
+    form = ResetPasswordForm()
+    if form.validate_on_submit():
+        # Update password
+        user = reset_token.user
+        user.password_hash = generate_password_hash(form.new_password.data, method='pbkdf2:sha256')
+        
+        # Delete the used token
+        db.session.delete(reset_token)
+        db.session.commit()
+        
+        flash('Your password has been reset successfully. You can now login with your new password.')
+        return redirect(url_for('login'))
+    
+    return render_template('reset_password.html', form=form, token=token)
 
 @app.route('/report_flood', methods=['GET', 'POST'])
 @login_required
@@ -885,26 +1250,42 @@ def report_flood():
         db.session.add(report)
         db.session.commit()
         
-        if form.flood_level.data == 'critical' or risk_score > 80:
-            alert = EmergencyAlert(
-                alert_type='flood_warning',
-                severity='critical',
-                title=f'Critical Flood Alert - {form.barangay.data}',
-                message=f'Critical flooding reported at {form.location.data}, {form.barangay.data}. Risk Score: {risk_score:.1f}/100. Immediate attention required.',
-                affected_barangays=json.dumps([form.barangay.data]),
-                latitude=latitude,
-                longitude=longitude,
-                radius=2.0,
-                created_by=current_user.id,
-                expires_at=datetime.utcnow() + timedelta(hours=24)
-            )
-            db.session.add(alert)
-            db.session.commit()
-            send_emergency_alerts(alert)
+        # Get action suggestions based on risk assessment
+        suggestions = get_flood_action_suggestions(form.flood_level.data, risk_score)
         
-        flash(f'Flood report submitted successfully. Risk Score: {risk_score:.1f}/100')
-        return redirect(url_for('index'))
+        # Send automatic flood alert if high risk
+        alert_sent = send_automatic_flood_alert(report, risk_score, suggestions)
+        
+        # Prepare response message with suggestions
+        if suggestions:
+            flash(f'Flood report submitted successfully! Risk Score: {risk_score:.1f}/100. {suggestions["title"]}', 'success')
+            # Store suggestions in session for display
+            session['flood_suggestions'] = suggestions
+        else:
+            flash(f'Flood report submitted successfully! Risk Score: {risk_score:.1f}/100', 'success')
+        
+        if alert_sent:
+            flash('🚨 High-risk flood detected! Emergency alert has been sent to all users in the area.', 'warning')
+        
+        return redirect(url_for('flood_report_success', report_id=report.id))
     return render_template('report_flood.html', form=form)
+
+@app.route('/flood_report_success/<int:report_id>')
+@login_required
+def flood_report_success(report_id):
+    """Show flood report success page with action suggestions"""
+    report = FloodReport.query.get_or_404(report_id)
+    suggestions = session.pop('flood_suggestions', None)
+    
+    # Get nearby safe zones
+    safe_zones = []
+    if report.latitude and report.longitude:
+        safe_zones = SafeZone.query.filter_by(barangay=report.barangay, is_active=True).all()
+    
+    return render_template('flood_report_success.html', 
+                         report=report, 
+                         suggestions=suggestions,
+                         safe_zones=safe_zones)
 
 @app.route('/profile', methods=['GET', 'POST'])
 @login_required
@@ -939,7 +1320,7 @@ def change_password():
         if not check_password_hash(current_user.password_hash, change_form.current_password.data):
             flash('Current password is incorrect')
             return redirect(url_for('profile'))
-        current_user.password_hash = generate_password_hash(change_form.new_password.data)
+        current_user.password_hash = generate_password_hash(change_form.new_password.data, method='pbkdf2:sha256')
         db.session.commit()
         flash('Password updated successfully')
         return redirect(url_for('profile'))
@@ -1155,9 +1536,18 @@ def submit_feedback():
 @app.after_request
 def add_no_cache_headers(response):
     """Prevent caching so protected pages aren't accessible after logout via back/forward cache."""
-    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
-    response.headers['Pragma'] = 'no-cache'
-    response.headers['Expires'] = '0'
+    # Only apply to HTML responses (not static files)
+    if response.content_type and 'text/html' in response.content_type:
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0, private'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        response.headers['Last-Modified'] = '0'
+        
+        # Additional security headers
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+        response.headers['X-Frame-Options'] = 'DENY'
+        response.headers['X-XSS-Protection'] = '1; mode=block'
+    
     return response
 
 @app.route('/admin/emergency_alert', methods=['GET', 'POST'])
@@ -1401,16 +1791,111 @@ def api_alerts():
 
     return jsonify(alerts_data)
 
+@app.route('/api/flood-suggestions/<flood_level>/<int:risk_score>')
+def api_flood_suggestions(flood_level, risk_score):
+    """API endpoint to get flood action suggestions"""
+    suggestions = get_flood_action_suggestions(flood_level, risk_score)
+    if suggestions:
+        return jsonify(suggestions)
+    else:
+        return jsonify({'error': 'No suggestions found'}), 404
+
+@app.route('/api/notifications')
+@login_required
+def api_notifications():
+    """Get notifications for the current user"""
+    notifications = []
+    
+    # Get emergency alerts
+    alerts = EmergencyAlert.query.filter_by(is_active=True).filter(
+        EmergencyAlert.expires_at > datetime.utcnow()
+    ).order_by(EmergencyAlert.created_at.desc()).limit(10).all()
+    
+    for alert in alerts:
+        # Check if alert is relevant to user's barangay
+        is_relevant = True
+        if alert.affected_barangays and current_user.barangay:
+            try:
+                affected = json.loads(alert.affected_barangays)
+                if isinstance(affected, list):
+                    is_relevant = current_user.barangay in affected
+            except Exception:
+                pass
+        
+        if is_relevant:
+            notifications.append({
+                'id': f'alert_{alert.id}',
+                'type': 'emergency_alert',
+                'title': alert.title,
+                'message': alert.message,
+                'severity': alert.severity,
+                'created_at': alert.created_at.isoformat(),
+                'is_read': False
+            })
+    
+    # Get flood reports for user's barangay (if they're a resident/brgy official)
+    if current_user.role in ['resident', 'brgy_official'] and current_user.barangay:
+        reports = FloodReport.query.filter_by(
+            barangay=current_user.barangay,
+            status='pending'
+        ).order_by(FloodReport.created_at.desc()).limit(5).all()
+        
+        for report in reports:
+            notifications.append({
+                'id': f'report_{report.id}',
+                'type': 'admin_notification',
+                'title': f'New Flood Report - {report.location}',
+                'message': f'Flood level: {report.flood_level.title()}. {report.description[:100]}...',
+                'severity': report.flood_level,
+                'created_at': report.created_at.isoformat(),
+                'is_read': False
+            })
+    
+    # Get system notifications for admins
+    if current_user.role == 'admin':
+        # Pending reports count
+        pending_count = FloodReport.query.filter_by(status='pending').count()
+        if pending_count > 0:
+            notifications.append({
+                'id': 'admin_pending_reports',
+                'type': 'admin_notification',
+                'title': f'{pending_count} Pending Reports',
+                'message': f'You have {pending_count} flood reports awaiting review.',
+                'severity': 'medium',
+                'created_at': datetime.utcnow().isoformat(),
+                'is_read': False
+            })
+        
+        # New user registrations (last 24 hours)
+        new_users = User.query.filter(
+            User.created_at >= datetime.utcnow() - timedelta(days=1),
+            User.role != 'admin'
+        ).count()
+        if new_users > 0:
+            notifications.append({
+                'id': 'admin_new_users',
+                'type': 'admin_notification',
+                'title': f'{new_users} New Users',
+                'message': f'{new_users} new users registered in the last 24 hours.',
+                'severity': 'low',
+                'created_at': datetime.utcnow().isoformat(),
+                'is_read': False
+            })
+    
+    return jsonify(notifications)
+
 if __name__ == '__main__':
     with app.app_context():
         try:
             db.create_all()
             create_admin_user()
+            create_default_action_suggestions()
             print("Database initialized successfully!")
         except Exception as e:
             print(f"Database initialization error: {e}")
             db.drop_all()
             db.create_all()
             create_admin_user()
+            create_default_action_suggestions()
             print("Database recreated successfully!")
     app.run(host='0.0.0.0', port=5000, debug=True)
